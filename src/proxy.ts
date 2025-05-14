@@ -2,9 +2,10 @@ import WebSocket from "ws";
 import axios from "axios";
 import FormData from "form-data";
 import { PassThrough } from "stream";
+// @ts-ignore
 import wav from "wav";
 import { proxyConfig, apiKeys } from "./config";
-import { createLogger } from "./utils"
+import { createLogger } from "./utils";
 
 const logger = createLogger("Proxy");
 
