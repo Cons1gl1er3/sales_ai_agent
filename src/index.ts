@@ -1,11 +1,9 @@
-import { MeetingBaasClient } from "./meetingbaas";
 import { TranscriptionProxy } from "./proxy";
 import { createLogger } from "./utils";
 
 const logger = createLogger("Main");
 
-// Keep references to all our clients for cleanup
-let meetingBaasClient: MeetingBaasClient | null = null;
+// Keep reference to the proxy for cleanup
 let proxy: TranscriptionProxy | null = null;
 
 // Graceful shutdown handler
@@ -13,15 +11,9 @@ function setupGracefulShutdown() {
   process.on("SIGINT", async () => {
     logger.info("Shutting down gracefully...");
 
-    // Disconnect from MeetingBaas (remove the bot from the meeting)
-    if (meetingBaasClient) {
-      logger.info("Telling bot to leave the meeting...");
-      meetingBaasClient.disconnect();
-    }
-
-    // Close Gladia connections (via proxy)
+    // Close the proxy server
     if (proxy) {
-      logger.info("Closing transcription services...");
+      logger.info("Closing proxy server...");
       await proxy.shutdown();
     }
 
@@ -34,30 +26,11 @@ async function main() {
   try {
     logger.info("Starting transcription system...");
 
-    // Create instances
+    // Create the proxy instance
     proxy = new TranscriptionProxy();
-    meetingBaasClient = new MeetingBaasClient();
 
     // Setup graceful shutdown
     setupGracefulShutdown();
-
-    // Extract command line arguments
-    const args = process.argv.slice(2);
-    const meetingUrl = args[0] || "https://meet.google.com/your-meeting-id";
-    const botName = args[1] || "Transcription Bot";
-    const webhookUrl = args[2] || "ws://localhost:3000"; // Your proxy URL
-
-    // Connect the bot to the meeting
-    const connected = await meetingBaasClient.connect(
-      meetingUrl,
-      botName,
-      webhookUrl
-    );
-
-    if (!connected) {
-      logger.error("Failed to connect to meeting");
-      process.exit(1);
-    }
 
     logger.info("System initialized successfully");
   } catch (error) {
