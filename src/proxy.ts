@@ -76,66 +76,20 @@ class TranscriptionProxy {
   private readonly bytesPerSecond: number = (this.sampleRate * this.bitDepth) / 8 * this.channels;
 
   constructor() {
-    // Single WebSocket server
+    // Create WebSocket server
     this.server = new WebSocket.Server({
       host: proxyConfig.host,
       port: proxyConfig.port,
     });
 
     logger.info(`WebSocket server started on ${proxyConfig.host}:${proxyConfig.port}`);
-
     
-    // Handle incoming connections from n8n's streaming.input
+    // Handle incoming connections
     this.server.on("connection", (ws) => {
       logger.info("New connection established");
-
       this.setupAudioStreamClient(ws);
     });
   }
-
-  // private setupAudioStreamClient(ws: WebSocket) {
-  //     // Determine if this is a bot or MeetingBaas client
-  //     ws.once("message", (message) => {
-  //       try {
-  //         const msg = JSON.parse(message.toString());
-  //         if (msg.type === "register" && msg.client === "bot") {
-  //           this.setupBotClient(ws);
-  //         } else {
-  //           this.setupMeetingBaasClient(ws);
-  //         }
-  //       } catch (error) {
-  //         // If message is not valid JSON, assume it's a MeetingBaas client
-  //         this.setupMeetingBaasClient(ws);
-  //       }
-  //     });
-  //   });
-  // }
-
-  // private setupBotClient(ws: WebSocket) {
-  //   logger.info("Bot client connected");
-  //   this.botClient = ws;
-
-  //   ws.on("message", (message) => {
-  //     // Log all messages from bot
-  //     logger.info(`Message from bot: ${inspectMessage(message)}`);
-
-  //     // Forward bot messages to all MeetingBaas clients
-  //     this.meetingBaasClients.forEach((client) => {
-  //       if (client.readyState === WebSocket.OPEN) {
-  //         client.send(message.toString());
-  //       }
-  //     });
-  //   });
-
-  //   ws.on("close", () => {
-  //     logger.info("Bot client disconnected");
-  //     this.botClient = null;
-  //   });
-
-  //   ws.on("error", (error) => {
-  //     logger.error("Bot client error:", error);
-  //   });
-  // }
 
   private setupAudioStreamClient(ws: WebSocket) {
     ws.on("message", async (message) => {
@@ -210,76 +164,6 @@ class TranscriptionProxy {
     });
   }
 
-  //   ws.on("message", (message) => {
-  //     // Skip logging binary buffers and try to transcribe them
-  //     if (Buffer.isBuffer(message)) {
-  //       // Try to identify if it's audio data
-  //       try {
-  //         const jsonStr = message.toString("utf8");
-  //         const jsonData = JSON.parse(jsonStr);
-
-  //         // If it's speaker information
-  //         if (
-  //           Array.isArray(jsonData) &&
-  //           jsonData.length > 0 &&
-  //           "name" in jsonData[0] &&
-  //           "isSpeaking" in jsonData[0]
-  //         ) {
-  //           const speakerInfo = jsonData[0] as SpeakerInfo;
-
-  //           // Only log when a new speaker starts talking (different from the last one)
-  //           // or when we haven't seen any speaker yet
-  //           if (
-  //             speakerInfo.isSpeaking &&
-  //             (this.lastSpeaker === null ||
-  //               this.lastSpeaker !== speakerInfo.name)
-  //           ) {
-  //             // Update our last speaker tracking
-  //             this.lastSpeaker = speakerInfo.name;
-
-  //             // Log the new speaker
-  //             logger.info(
-  //               `New speaker: ${speakerInfo.name} (id: ${speakerInfo.id})`
-  //             );
-  //           }
-
-  //           // For other JSON messages, log as usual without speaker tracking
-  //         } else {
-  //           logger.info(`Message from MeetingBaas: ${inspectMessage(message)}`);
-  //         }
-  //       } catch {
-  //         // Likely audio data, send to Gladia for transcription
-  //         if (this.isGladiaSessionActive) {
-  //           this.gladiaClient.sendAudioChunk(message);
-  //         }
-  //       }
-  //     } else {
-  //       // For non-binary messages, log as usual
-  //       logger.info(`Message from MeetingBaas: ${inspectMessage(message)}`);
-  //     }
-
-  //     // Forward MeetingBaas messages to bot client
-  //     if (this.botClient && this.botClient.readyState === WebSocket.OPEN) {
-  //       this.botClient.send(message.toString());
-  //     }
-  //   });
-
-  //   ws.on("close", () => {
-  //     logger.info("MeetingBaas client disconnected");
-  //     this.meetingBaasClients.delete(ws);
-
-  //     // End Gladia session if last client disconnects
-  //     if (this.meetingBaasClients.size === 0 && this.isGladiaSessionActive) {
-  //       this.gladiaClient.endSession();
-  //       this.isGladiaSessionActive = false;
-  //     }
-  //   });
-
-  //   ws.on("error", (error) => {
-  //     logger.error("MeetingBaas client error:", error);
-  //   });
-  // }
-
   private async createWavBuffer(pcmData: Buffer, sampleRate: number): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const writer = new wav.Writer({
@@ -330,14 +214,5 @@ class TranscriptionProxy {
     this.server.close();
   }
 }
-
-// Start the proxy
-const proxy = new TranscriptionProxy();
-
-// Handle graceful shutdown
-process.on("SIGINT", async () => {
-  await proxy.shutdown();
-  process.exit(0);
-});
 
 export { TranscriptionProxy };
